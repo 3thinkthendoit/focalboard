@@ -368,23 +368,25 @@ func (a *API) handleDeleteBlock(w http.ResponseWriter, r *http.Request) {
 
 	val := r.URL.Query().Get("disable_notify")
 	disableNotify := val == True
-
 	if !a.permissions.HasPermissionToBoard(userID, boardID, model.PermissionManageBoardCards) {
 		a.errorResponse(w, r, model.NewErrPermission("access denied to make board changes"))
 		return
 	}
-
 	block, err := a.app.GetBlockByID(blockID)
 	if err != nil {
 		a.errorResponse(w, r, err)
 		return
 	}
+
 	if block.BoardID != boardID {
 		message := fmt.Sprintf("block ID=%s on BoardID=%s", block.ID, boardID)
 		a.errorResponse(w, r, model.NewErrNotFound(message))
 		return
 	}
-
+	if block.CreatedBy != userID {
+		a.errorResponse(w, r, model.NewErrPermission("access denied to make board delete"))
+		return
+	}
 	auditRec := a.makeAuditRecord(r, "deleteBlock", audit.Fail)
 	defer a.audit.LogRecord(audit.LevelModify, auditRec)
 	auditRec.AddMeta("boardID", boardID)

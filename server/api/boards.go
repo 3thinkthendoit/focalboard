@@ -318,13 +318,17 @@ func (a *API) handlePatchBoard(w http.ResponseWriter, r *http.Request) {
 	//       "$ref": "#/definitions/ErrorResponse"
 
 	boardID := mux.Vars(r)["boardID"]
-	if _, err := a.app.GetBoard(boardID); err != nil {
+	board, err := a.app.GetBoard(boardID)
+	if err != nil {
 		a.errorResponse(w, r, err)
 		return
 	}
-
 	userID := getUserID(r)
-
+	//not createBy can't patch
+	if userID != board.CreatedBy {
+		a.errorResponse(w, r, model.NewErrPermission("access denied to modifying board properties"))
+		return
+	}
 	requestBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		a.errorResponse(w, r, err)
