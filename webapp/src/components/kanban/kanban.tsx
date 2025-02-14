@@ -211,6 +211,9 @@ const Kanban = (props: Props) => {
         newShowOptions.set(templateId, show)
         setShowCalculationsMenu(newShowOptions)
     }
+    const handAddSubCard = () => {
+        props.addCard(undefined, true)
+    }
 
     if (!groupByProperty) {
         Utils.assertFailure('Board views must have groupByProperty set')
@@ -299,6 +302,7 @@ const Kanban = (props: Props) => {
                                 onClick={props.onCardClicked}
                                 onDrop={onDropToCard}
                                 showCard={props.showCard}
+                                addSubCard={handAddSubCard}
                                 isManualSort={isManualSort}
                             />
                         ))}

@@ -98,6 +98,7 @@ const GalleryCard = (props: Props) => {
                                 TelemetryClient.trackEvent(TelemetryCategory, TelemetryActions.DuplicateCard, {board: board.id, card: card.id})
                                 mutator.duplicateCard(card.id, board.id)
                             }}
+                            onClickAddSub={() => {}}
                         />
                     </MenuWrapper>
                 }

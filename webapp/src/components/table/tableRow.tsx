@@ -197,6 +197,7 @@ const TableRow = (props: Props) => {
                             cardId={card.id}
                             boardId={card.boardId}
                             onClickDelete={handleDeleteButtonOnClick}
+                            onClickAddSub={() => {}}
                             onClickDuplicate={() => {
                                 mutator.duplicateCard(
                                     card.id,

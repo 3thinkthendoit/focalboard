@@ -4,6 +4,8 @@
 import React, {ReactNode} from 'react'
 import {useIntl} from 'react-intl'
 
+import {PlusIcon} from '@mattermost/compass-icons/components'
+
 import DeleteIcon from '../../widgets/icons/delete'
 import Menu from '../../widgets/menu'
 import BoardPermissionGate from '../permissions/boardPermissionGate'
@@ -22,6 +24,7 @@ type Props = {
     boardId: string
     onClickDelete: () => void
     onClickDuplicate?: () => void
+    onClickAddSub?: () => void
     children?: ReactNode
 }
 
@@ -36,6 +39,13 @@ export const CardActionsMenu = (props: Props): JSX.Element => {
         props.onClickDelete()
     }
 
+    const addSubCard = () => {
+        if (props.onClickAddSub) {
+            TelemetryClient.trackEvent(TelemetryCategory, TelemetryActions.CreateCard, {board: props.boardId, card: props.cardId})
+            props.onClickAddSub()
+        }
+    }
+
     const handleDuplicateCard = () => {
         if (props.onClickDuplicate) {
             TelemetryClient.trackEvent(TelemetryCategory, TelemetryActions.DuplicateCard, {board: props.boardId, card: props.cardId})
@@ -46,6 +56,12 @@ export const CardActionsMenu = (props: Props): JSX.Element => {
     return (
         <Menu position='left'>
             <BoardPermissionGate permissions={[Permission.ManageBoardCards]}>
+                <Menu.Text
+                    icon={<PlusIcon/>}
+                    id='addSubCard'
+                    name={intl.formatMessage({id: 'CardActionsMenu.SubCard', defaultMessage: 'Add Sub Card'})}
+                    onClick={addSubCard}
+                />
                 <Menu.Text
                     icon={<DeleteIcon/>}
                     id='delete'

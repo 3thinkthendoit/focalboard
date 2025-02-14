@@ -30,6 +30,7 @@ type Props = {
     readonly: boolean
     onDrop: (srcCard: Card, dstCard: Card) => void
     showCard: (cardId?: string) => void
+    addSubCard?: () => void
     isManualSort: boolean
 }
 
@@ -100,6 +101,12 @@ const KanbanCard = (props: Props) => {
                         cardId={card!.id}
                         boardId={card!.boardId}
                         onClickDelete={handleDeleteButtonOnClick}
+                        onClickAddSub={() => {
+                            if (props.addSubCard) {
+                                TelemetryClient.trackEvent(TelemetryCategory, TelemetryActions.CreateCard, {board: board.id, card: card.id})
+                                props.addSubCard()
+                            }
+                        }}
                         onClickDuplicate={() => {
                             TelemetryClient.trackEvent(TelemetryCategory, TelemetryActions.DuplicateCard, {board: board.id, card: card.id})
                             mutator.duplicateCard(

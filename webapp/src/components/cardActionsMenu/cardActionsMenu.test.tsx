@@ -68,6 +68,7 @@ describe('components/cardActionsMenu', () => {
                         boardId='345'
                         onClickDelete={jest.fn()}
                         onClickDuplicate={jest.fn()}
+                        onClickAddSub={() => {}}
                     />
                 </ReduxProvider>,
             ))

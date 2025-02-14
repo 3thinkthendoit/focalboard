@@ -55,6 +55,7 @@ const CardDialog = (props: Props): JSX.Element => {
     const intl = useIntl()
     const dispatch = useAppDispatch()
     const isTemplate = card && card.fields.isTemplate
+    const isParentCard = true
 
     const [showConfirmationDialogBox, setShowConfirmationDialogBox] = useState<boolean>(false)
     const makeTemplateClicked = async () => {
@@ -127,6 +128,16 @@ const CardDialog = (props: Props): JSX.Element => {
                     name='New template from card'
                     onClick={makeTemplateClicked}
                 />
+                {!isParentCard &&
+                <Menu.Text
+                    id='addSubCard'
+                    icon={
+                        <CompassIcon
+                            icon='plus'
+                        />}
+                    name='Add Sub Card'
+                    onClick={makeTemplateClicked}
+                />}
             </BoardPermissionGate>
             }
         </CardActionsMenu>

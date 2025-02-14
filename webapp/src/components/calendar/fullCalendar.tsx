@@ -175,6 +175,9 @@ const CalendarFullView = (props: Props): JSX.Element|null => {
                                 TelemetryClient.trackEvent(TelemetryCategory, TelemetryActions.DuplicateCard, {board: board.id, card: card.id})
                                 mutator.duplicateCard(card.id, board.id)
                             }}
+                            onClickAddSub={() => {
+
+                            }}
                         />
                     </MenuWrapper>}
                     <div className='octo-icontitle'>

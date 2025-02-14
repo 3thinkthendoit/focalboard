@@ -44,6 +44,7 @@ build/Release
 # Dependency directory
 # https://docs.npmjs.com/misc/faq#should-i-check-my-node-modules-folder-into-git
 node_modules
+import
 dist
 pack
 package
@@ -74,3 +75,4 @@ server/vendor
 docker/certs
 docker/data
 server/**/*.coverage
+
