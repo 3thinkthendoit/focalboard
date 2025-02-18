@@ -383,7 +383,12 @@ func (a *API) handleDeleteBlock(w http.ResponseWriter, r *http.Request) {
 		a.errorResponse(w, r, model.NewErrNotFound(message))
 		return
 	}
-	if block.CreatedBy != userID {
+	board, err := a.app.GetBoard(boardID)
+	if err != nil {
+		a.errorResponse(w, r, err)
+		return
+	}
+	if block.CreatedBy != userID && board.CreatedBy != userID {
 		a.errorResponse(w, r, model.NewErrPermission("access denied to make board delete"))
 		return
 	}
