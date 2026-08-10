@@ -4,19 +4,26 @@
 
 # ---------- Stage 1: build webapp ----------
 FROM node:20.11.0 AS webapp-builder
-# eslint-plugin-mattermost 是 git 依赖，npm ci 需要 git 二进制
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+# eslint-plugin-mattermost 在 lockfile 里是 git+ssh 依赖，容器内无法用 ssh 拉取；
+# 改为 https 匿名克隆。同时需要 git 二进制。
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/* \
+    && git config --global url."https://github.com/".insteadOf "git@github.com:" \
+    && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 # cypress 是 devDependency，install 时会下载二进制；容器内不需要它运行，跳过下载
 ENV CYPRESS_INSTALL_BINARY=0
 WORKDIR /webapp
 COPY webapp/package.json webapp/package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci --no-optional; else npm install --no-optional; fi
+RUN if [ -f package-lock.json ]; then npm ci --no-optional --ignore-scripts --no-audit --no-fund; else npm install --no-optional --no-audit --no-fund; fi
+# 单独执行依赖的安装后脚本（webpack 不需要 cypress/eslint 的 postinstall，这里只跑必要原生模块编译）
+RUN npm rebuild --no-audit --no-fund
 COPY webapp/ ./
 RUN npm run pack
 
 # ---------- Stage 2: build server ----------
 FROM golang:1.21 AS server-builder
-ENV CGO_ENABLED=1
+ENV CGO_ENABLED=1 \
+    GOPROXY=https://proxy.golang.org,direct \
+    GOSUMDB=sum.golang.org
 WORKDIR /server
 COPY server/go.mod server/go.sum ./
 RUN go mod download
