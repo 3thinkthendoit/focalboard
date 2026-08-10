@@ -13,6 +13,8 @@ RUN npm run pack
 # ---------- Stage 2: build server ----------
 FROM golang:1.21 AS server-builder
 WORKDIR /server
+COPY server/go.mod server/go.sum ./
+RUN go mod download
 COPY server/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags '-X "github.com/mattermost/focalboard/server/model.Edition=docker"' \
