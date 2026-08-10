@@ -15,11 +15,11 @@ apply_json() {
   fi
 }
 
-apply_json serverPort "$FB_PORT"
-apply_json dbType "$FB_DB_TYPE"
-apply_json dbConfig "$FB_DB_CONFIG"
+apply_json port "$FB_PORT"
+apply_json dbtype "$FB_DB_TYPE"
+apply_json dbconfig "$FB_DB_CONFIG"
 apply_json useSSL "$FB_USE_SSL"
-apply_json secureCookies "$FB_SECURE_COOKIES"
+apply_json secureCookie "$FB_SECURE_COOKIES"
 
 # focalboard-server requires FOCALBOARD_SINGLE_USER_TOKEN when --single-user
 # is set. Treat FB_SINGLE_USER_TOKEN as that source (generate one if absent).
