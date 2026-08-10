@@ -1,0 +1,66 @@
+name: Docker Build & Push to ACR
+
+# Build a multi-arch Focalboard image and push it to Alibaba Cloud ACR.
+# Tags: <git short sha> and "latest".
+#
+# Required GitHub repository secrets:
+#   ACR_REGISTRY   e.g. registry.cn-hangzhou.aliyuncs.com
+#   ACR_NAMESPACE  e.g. your-namespace
+#   ACR_USERNAME   ACR login account
+#   ACR_PASSWORD   ACR login password
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: focalboard
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-22.04
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@4574d27a4764455ce23cc76c9091b2c588f1a7c0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f7ce87c1d21bcf2cdb4489f97d01a8ac3c0475bc
+
+      - name: Compute image tags
+        id: meta
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Image: ${ACR_REGISTRY}/${ACR_NAMESPACE}/${IMAGE_NAME}:${SHORT_SHA} and :latest"
+        env:
+          ACR_REGISTRY: ${{ secrets.ACR_REGISTRY }}
+          ACR_NAMESPACE: ${{ secrets.ACR_NAMESPACE }}
+
+      - name: Log in to Alibaba Cloud ACR
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+        with:
+          registry: ${{ secrets.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@ca052bb54ab0790d9b3ea8c5c15323936914cff2
+        with:
+          context: .
+          file: ./Dockerfile.buildx
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }}
+            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,42 @@
+# Multi-stage Dockerfile for Focalboard (Go server + Node webapp)
+# Build & push to Alibaba Cloud ACR via GitHub Actions.
+# Adapted from the rustfs buildx packaging pattern.
+
+# ---------- Stage 1: build webapp ----------
+FROM node:20.11.0 AS webapp-builder
+WORKDIR /webapp
+COPY webapp/package.json webapp/package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci --no-optional; else npm install --no-optional; fi
+COPY webapp/ ./
+RUN npm run pack
+
+# ---------- Stage 2: build server ----------
+FROM golang:1.21 AS server-builder
+WORKDIR /server
+COPY server/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags '-X "github.com/mattermost/focalboard/server/model.Edition=docker"' \
+    -o /out/focalboard-server ./main
+
+# ---------- Stage 3: runtime ----------
+FROM alpine:3.19 AS runtime
+RUN apk add --no-cache ca-certificates tzdata wget jq
+
+ENV FB_PORT=8000 \
+    FB_DB_TYPE=sqlite3 \
+    FB_DB_CONFIG="" \
+    FB_USE_SSL=false \
+    FB_SECURE_COOKIES=false
+
+WORKDIR /opt/focalboard
+
+COPY --from=server-builder /out/focalboard-server /opt/focalboard/bin/focalboard-server
+COPY --from=webapp-builder /webapp/pack /opt/focalboard/pack
+COPY server-config.json /opt/focalboard/config.json
+COPY NOTICE.txt /opt/focalboard/NOTICE.txt
+COPY docker-buildx/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 8000
+
+ENTRYPOINT ["/entrypoint.sh"]
