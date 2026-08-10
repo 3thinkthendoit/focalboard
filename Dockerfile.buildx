@@ -4,6 +4,10 @@
 
 # ---------- Stage 1: build webapp ----------
 FROM node:20.11.0 AS webapp-builder
+# eslint-plugin-mattermost 是 git 依赖，npm ci 需要 git 二进制
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+# cypress 是 devDependency，install 时会下载二进制；容器内不需要它运行，跳过下载
+ENV CYPRESS_INSTALL_BINARY=0
 WORKDIR /webapp
 COPY webapp/package.json webapp/package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci --no-optional; else npm install --no-optional; fi
