@@ -1,63 +1,70 @@
 name: Docker Build & Push to ACR
 
 # Build a multi-arch Focalboard image and push it to Alibaba Cloud ACR.
-# Tags: <git short sha> and "latest".
-#
-# Required GitHub repository secrets:
-#   ACR_REGISTRY   e.g. registry.cn-hangzhou.aliyuncs.com
-#   ACR_NAMESPACE  e.g. your-namespace
-#   ACR_USERNAME   ACR login account
-#   ACR_PASSWORD   ACR login password
+# Mirrors the rustfs docker.yml pattern:
+#   - The full ACR image prefix is hardcoded below as REGISTRY_ACR
+#     (registry + namespace + repo), same pattern as the rustfs docker.yml
+#   - Only the ACR credentials come from GitHub secrets (ACR_USERNAME / ACR_PASSWORD)
+#   - Manual trigger only (workflow_dispatch)
 
 on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: focalboard
+  # 完整 ACR 镜像前缀（与 rustfs 同域名/命名空间，仅仓库名不同）
+  REGISTRY_ACR: crpi-hzehwxn7bt1lszkb.cn-hangzhou.personal.cr.aliyuncs.com/3thinkthendoit/focalboard
+  DOCKER_PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Compute image tags
+      - name: Compute version (git tag or short sha)
         id: meta
         run: |
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "Image: ${ACR_REGISTRY}/${ACR_NAMESPACE}/${IMAGE_NAME}:${SHORT_SHA} and :latest"
-        env:
-          ACR_REGISTRY: ${{ secrets.ACR_REGISTRY }}
-          ACR_NAMESPACE: ${{ secrets.ACR_NAMESPACE }}
+          if git describe --abbrev=0 --tags >/dev/null 2>&1; then
+            VERSION=$(git describe --abbrev=0 --tags)
+          else
+            VERSION=$(git rev-parse --short HEAD)
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Building version: ${VERSION}"
 
-      - name: Log in to Alibaba Cloud ACR
-        uses: docker/login-action@v3
+      - name: Login to Alibaba Cloud ACR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
-          registry: ${{ secrets.ACR_REGISTRY }}
+          registry: crpi-hzehwxn7bt1lszkb.cn-hangzhou.personal.cr.aliyuncs.com
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: ./Dockerfile.buildx
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
           tags: |
-            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }}
-            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY_ACR }}:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY_ACR }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+          pull: true

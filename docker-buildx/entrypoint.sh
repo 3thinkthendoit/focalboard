@@ -29,7 +29,7 @@ fi
 export FOCALBOARD_SINGLE_USER_TOKEN="$FB_SINGLE_USER_TOKEN"
 
 # Build the server command. --dbconfig is only passed when set.
-set -- "$SERVER" --port "$FB_PORT" --single-user --dbtype "$FB_DB_TYPE"
+set -- "$SERVER" --config /opt/focalboard/config.json --port "$FB_PORT" --single-user --dbtype "$FB_DB_TYPE"
 if [ -n "$FB_DB_CONFIG" ]; then
   set -- "$@" --dbconfig "$FB_DB_CONFIG"
 fi
