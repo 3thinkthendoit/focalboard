@@ -1,36 +1,37 @@
 # Multi-stage Dockerfile for Focalboard (Go server + Node webapp)
 # Build & push to Alibaba Cloud ACR via GitHub Actions.
-# Build steps closely follow the project's official Dockerfile.build.
+# Adapted from the rustfs buildx packaging pattern.
 
 # ---------- Stage 1: build webapp ----------
-# Official Dockerfile.build uses node:16.3.0 — keep it to stay compatible with
-# the older webapp dependency tree (node 20 fails to build native modules).
-FROM node:16.3.0@sha256:ca6daf1543242acb0ca59ff425509eab7defb9452f6ae07c156893db06c7a9a4 AS webapp-builder
-
-WORKDIR /webapp
-COPY webapp .
-
-### 'CPPFLAGS="-DPNG_ARM_NEON_OPT=0"' avoids an imagemin/optipng build bug.
-### Cypress is only used for e2e tests; skip its binary download in the build.
+FROM node:20.11.0 AS webapp-builder
+# eslint-plugin-mattermost 在 lockfile 里是 git+ssh 依赖，容器内无法用 ssh 拉取；
+# 改为 https 匿名克隆。同时需要 git 二进制。
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/* \
+    && git config --global url."https://github.com/".insteadOf "git@github.com:" \
+    && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+# cypress 是 devDependency，install 时会下载二进制；容器内不需要它运行，跳过下载
 ENV CYPRESS_INSTALL_BINARY=0
-RUN CPPFLAGS="-DPNG_ARM_NEON_OPT=0" npm install --no-optional --no-audit --no-fund \
-    && npm run pack
+WORKDIR /webapp
+COPY webapp/package.json webapp/package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci --no-optional --ignore-scripts --no-audit --no-fund; else npm install --no-optional --no-audit --no-fund; fi
+# 单独执行依赖的安装后脚本（webpack 不需要 cypress/eslint 的 postinstall，这里只跑必要原生模块编译）
+RUN npm rebuild --no-audit --no-fund
+COPY webapp/ ./
+RUN npm run pack
 
 # ---------- Stage 2: build server ----------
-# Official Dockerfile.build uses golang:1.18.3 and `make server-linux`.
-FROM golang:1.18.3@sha256:b203dc573d81da7b3176264bfa447bd7c10c9347689be40540381838d75eebef AS server-builder
-
+FROM golang:1.21 AS server-builder
 ENV CGO_ENABLED=1 \
     GOPROXY=https://proxy.golang.org,direct \
     GOSUMDB=sum.golang.org
-
-WORKDIR /src
-COPY . .
-COPY --from=webapp-builder /webapp/pack webapp/pack
-
-ARG TARGETARCH
-ENV BUILD_NUMBER=docker
-RUN make server-linux arch=${TARGETARCH}
+WORKDIR /server
+COPY server/go.mod server/go.sum ./
+RUN go mod download
+COPY server/ ./
+RUN GOOS=linux go build \
+    -tags 'json1 sqlite3' \
+    -ldflags '-X "github.com/mattermost/focalboard/server/model.Edition=docker"' \
+    -o /out/focalboard-server ./main
 
 # ---------- Stage 3: runtime ----------
 FROM debian:bookworm-slim AS runtime
@@ -46,7 +47,7 @@ ENV FB_PORT=8000 \
 
 WORKDIR /opt/focalboard
 
-COPY --from=server-builder /src/bin/linux/focalboard-server /opt/focalboard/bin/focalboard-server
+COPY --from=server-builder /out/focalboard-server /opt/focalboard/bin/focalboard-server
 COPY --from=webapp-builder /webapp/pack /opt/focalboard/pack
 COPY server-config.json /opt/focalboard/config.json
 COPY NOTICE.txt /opt/focalboard/NOTICE.txt
