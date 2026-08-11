@@ -10,6 +10,12 @@ SERVER=/opt/focalboard/bin/focalboard-server
 : "${FB_DB_CONFIG:=}"
 : "${FB_USE_SSL:=false}"
 : "${FB_SECURE_COOKIES:=false}"
+# Single-user mode by default (no login/register). Set FB_SINGLE_USER=false to
+# enable multi-user registration.
+: "${FB_SINGLE_USER:=true}"
+# Public base URL used to build registration/team links. Must match the URL
+# users actually visit (e.g. https://your-domain.com).
+: "${FB_SERVER_ROOT:=}"
 
 # Use jq (installed in the image) to safely override config.json values.
 apply_json() {
@@ -64,6 +70,14 @@ apply_json dbconfig "$FB_DB_CONFIG"
 apply_json useSSL "$FB_USE_SSL"
 apply_json secureCookie "$FB_SECURE_COOKIES"
 
+# serverRoot drives registration/team invite links. Derive a default from the
+# port when not provided so generated links use the right host.
+if [ -n "$FB_SERVER_ROOT" ]; then
+  apply_json serverRoot "$FB_SERVER_ROOT"
+elif [ "$FB_SINGLE_USER" = "false" ]; then
+  apply_json serverRoot "http://localhost:${FB_PORT}"
+fi
+
 # focalboard-server requires FOCALBOARD_SINGLE_USER_TOKEN when --single-user
 # is set. Treat FB_SINGLE_USER_TOKEN as that source (generate one if absent).
 if [ -z "$FB_SINGLE_USER_TOKEN" ]; then
@@ -72,7 +86,10 @@ fi
 export FOCALBOARD_SINGLE_USER_TOKEN="$FB_SINGLE_USER_TOKEN"
 
 # Build the server command. --dbconfig is only passed when set.
-set -- "$SERVER" --config /opt/focalboard/config.json --port "$FB_PORT" --single-user --dbtype "$FB_DB_TYPE"
+set -- "$SERVER" --config /opt/focalboard/config.json --port "$FB_PORT" --dbtype "$FB_DB_TYPE"
+if [ "$FB_SINGLE_USER" != "false" ]; then
+  set -- "$@" --single-user
+fi
 if [ -n "$FB_DB_CONFIG" ]; then
   set -- "$@" --dbconfig "$FB_DB_CONFIG"
 fi
