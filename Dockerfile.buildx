@@ -14,8 +14,6 @@ ENV CYPRESS_INSTALL_BINARY=0
 WORKDIR /webapp
 COPY webapp/package.json webapp/package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci --no-optional --ignore-scripts --no-audit --no-fund; else npm install --no-optional --no-audit --no-fund; fi
-# 单独执行依赖的安装后脚本（webpack 不需要 cypress/eslint 的 postinstall，这里只跑必要原生模块编译）
-RUN npm rebuild --no-audit --no-fund
 COPY webapp/ ./
 RUN npm run pack
 
